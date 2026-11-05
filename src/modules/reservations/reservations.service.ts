@@ -57,4 +57,15 @@ export class ReservationsService {
     reservation.status = ReservationStatus.CANCELADA;
     return await this.reservationRepository.save(reservation);
   }
+
+  async updateStatus(id: string, status: ReservationStatus): Promise<Reservation> {
+    const reservation = await this.findOne(id);
+    reservation.status = status;
+    return await this.reservationRepository.save(reservation);
+  }
+
+  async remove(id: string): Promise<void> {
+    const reservation = await this.findOne(id);
+    await this.reservationRepository.remove(reservation);
+  }
 }

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -13,8 +17,48 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const user = this.userRepository.create(createUserDto);
-    return await this.userRepository.save(user);
+    const code = String(createUserDto.code).trim();
+    const identification = String(createUserDto.identification).trim();
+    const email = String(createUserDto.email).trim().toLowerCase();
+
+    // Verificación preventiva de duplicados para evitar error 500 no controlado
+    const existing = await this.userRepository.findOne({
+      where: [{ code }, { identification }, { email }],
+    });
+
+    if (existing) {
+      if (existing.code === code) {
+        throw new ConflictException(`El código universitario '${code}' ya se encuentra registrado.`);
+      }
+      if (existing.identification === identification) {
+        throw new ConflictException(
+          `La identificación '${identification}' ya se encuentra registrada.`,
+        );
+      }
+      if (existing.email.toLowerCase() === email) {
+        throw new ConflictException(
+          `El correo electrónico '${email}' ya se encuentra registrado.`,
+        );
+      }
+    }
+
+    try {
+      const user = this.userRepository.create({
+        ...createUserDto,
+        code,
+        identification,
+        email,
+        semester: createUserDto.semester ? Number(createUserDto.semester) : undefined,
+      });
+      return await this.userRepository.save(user);
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        throw new ConflictException(
+          error?.detail || 'Ya existe un usuario con este código, identificación o correo.',
+        );
+      }
+      throw error;
+    }
   }
 
   async findAll(): Promise<User[]> {

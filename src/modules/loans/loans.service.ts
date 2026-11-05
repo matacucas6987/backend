@@ -4,12 +4,16 @@ import { Repository } from 'typeorm';
 import { Loan } from './entities/loan.entity';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { LoanStatus } from './enums/loan-status.enum';
+import { Resource } from '../resources/entities/resource.entity';
+import { ResourceStatus } from '../resources/enums/resource-status.enum';
 
 @Injectable()
 export class LoansService {
   constructor(
     @InjectRepository(Loan)
     private readonly loanRepository: Repository<Loan>,
+    @InjectRepository(Resource)
+    private readonly resourceRepository: Repository<Resource>,
   ) {}
 
   async create(createLoanDto: CreateLoanDto): Promise<Loan> {
@@ -20,7 +24,16 @@ export class LoansService {
       notes: createLoanDto.notes,
       status: LoanStatus.ACTIVO,
     });
-    return await this.loanRepository.save(loan);
+    const savedLoan = await this.loanRepository.save(loan);
+
+    // Marcar recurso como Prestado
+    const resource = await this.resourceRepository.findOne({ where: { id: createLoanDto.resourceId } });
+    if (resource) {
+      resource.status = ResourceStatus.PRESTADO;
+      await this.resourceRepository.save(resource);
+    }
+
+    return savedLoan;
   }
 
   async findAll(status?: LoanStatus): Promise<Loan[]> {
@@ -54,6 +67,15 @@ export class LoansService {
     const loan = await this.findOne(id);
     loan.status = LoanStatus.DEVUELTO;
     loan.returnDate = new Date();
-    return await this.loanRepository.save(loan);
+    const updatedLoan = await this.loanRepository.save(loan);
+
+    // Liberar recurso a Disponible
+    const resource = await this.resourceRepository.findOne({ where: { id: loan.resourceId } });
+    if (resource) {
+      resource.status = ResourceStatus.DISPONIBLE;
+      await this.resourceRepository.save(resource);
+    }
+
+    return updatedLoan;
   }
 }

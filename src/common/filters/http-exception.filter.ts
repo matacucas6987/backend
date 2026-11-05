@@ -17,20 +17,28 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status =
+    let status =
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const errorResponse =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : { message: (exception as Error)?.message || 'Error interno del servidor' };
+    let message: any;
 
-    const message =
-      typeof errorResponse === 'object' && errorResponse !== null && 'message' in errorResponse
-        ? (errorResponse as any).message
-        : errorResponse;
+    if (exception instanceof HttpException) {
+      const errorResponse = exception.getResponse();
+      message =
+        typeof errorResponse === 'object' && errorResponse !== null && 'message' in errorResponse
+          ? (errorResponse as any).message
+          : errorResponse;
+    } else if ((exception as any)?.code === '23505') {
+      // Código de error PostgreSQL para restricción de unicidad (unique_violation)
+      status = HttpStatus.CONFLICT;
+      message =
+        (exception as any)?.detail ||
+        'Conflicto de unicidad: ya existe un registro con estos datos en la base de datos.';
+    } else {
+      message = (exception as Error)?.message || 'Error interno del servidor';
+    }
 
     this.logger.error(
       `HTTP ${status} Error en ${request.method} ${request.url}: ${JSON.stringify(message)}`,

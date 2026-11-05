@@ -14,15 +14,39 @@ export class ResourcesService {
   ) {}
 
   async create(createResourceDto: CreateResourceDto): Promise<Resource> {
-    const resource = this.resourceRepository.create({
+    const resourceData: any = {
       title: createResourceDto.title,
       code: createResourceDto.code,
       collection: createResourceDto.collection,
       status: createResourceDto.status || ResourceStatus.DISPONIBLE,
       location: createResourceDto.location,
       acquisitionDate: createResourceDto.acquisitionDate,
-    });
+    };
 
+    if (createResourceDto.collectionData) {
+      switch (createResourceDto.collection) {
+        case CollectionType.GENERAL:
+          resourceData.generalBook = createResourceDto.collectionData;
+          break;
+        case CollectionType.RESERVA:
+          resourceData.reserveBook = createResourceDto.collectionData;
+          break;
+        case CollectionType.REFERENCIA:
+          resourceData.referenceMaterial = createResourceDto.collectionData;
+          break;
+        case CollectionType.HEMEROTECA:
+          resourceData.periodical = createResourceDto.collectionData;
+          break;
+        case CollectionType.MAPOTECA:
+          resourceData.mapItem = createResourceDto.collectionData;
+          break;
+        case CollectionType.TECNOTECA:
+          resourceData.techDevice = createResourceDto.collectionData;
+          break;
+      }
+    }
+
+    const resource = this.resourceRepository.create(resourceData as Resource);
     return await this.resourceRepository.save(resource);
   }
 
